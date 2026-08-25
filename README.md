@@ -14,4 +14,3 @@
 
 **Why this is appropriate:** The site is explicitly built for this exact use case, the data collected is public catalogue information with no personal or sensitive content, and the assignment scope (3 pages, 60 books) is small and deliberate rather than a full-site crawl.
 
-I will not reuse this code on another site without checking its rules and terms first.
