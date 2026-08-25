@@ -1,9 +1,13 @@
 import os
+import re
+import json
 import time
 from datetime import datetime, timezone
 from urllib.parse import urljoin
+from typing import Optional
 import requests
 from bs4 import BeautifulSoup
+from pydantic import BaseModel, ValidationError, field_validator
 
 BASE_URL = "https://books.toscrape.com/"
 CACHE_DIR = "cache"
@@ -12,7 +16,30 @@ USER_AGENT = "FlyRankInternshipA9/1.0 (+https://github.com/subanaash/flyrank-int
 TIMEOUT = 10
 DELAY = 0.5
 
+RATING_WORDS = {"One": 1, "Two": 2, "Three": 3, "Four": 4, "Five": 5}
 
+
+# ---- Schema ----
+class Book(BaseModel):
+    title: str
+    product_url: str
+    price_gbp: float
+    price_text: str
+    availability_text: str
+    rating: Optional[int] = None
+    description: Optional[str] = None
+    source_page: str
+    fetched_at: str
+
+    @field_validator("product_url", "source_page")
+    @classmethod
+    def must_be_https(cls, v):
+        if not v.startswith("https://"):
+            raise ValueError("URL must start with https://")
+        return v
+
+
+# ---- Fetch / cache ----
 def fetch_page(url: str, cache_filename: str) -> str:
     os.makedirs(CACHE_DIR, exist_ok=True)
     cache_path = os.path.join(CACHE_DIR, cache_filename)
@@ -39,6 +66,7 @@ def fetch_page(url: str, cache_filename: str) -> str:
     return html
 
 
+# ---- Discovery ----
 def discover_book_links(catalogue_url: str, html: str) -> list[str]:
     soup = BeautifulSoup(html, "html.parser")
     links = []
@@ -71,11 +99,11 @@ def discover_all_catalogue_pages(start_url: str) -> list[str]:
 
 
 def url_to_cache_filename(url: str) -> str:
-    """Turn a book URL's slug into a safe cache filename."""
-    slug = url.rstrip("/").split("/")[-2]  # e.g. a-light-in-the-attic_1000
+    slug = url.rstrip("/").split("/")[-2]
     return f"book-{slug}.html"
 
 
+# ---- Extraction ----
 def extract_book_record(book_url: str, html: str, source_page: str) -> dict:
     soup = BeautifulSoup(html, "html.parser")
     product = soup.select_one("div.product_main")
@@ -113,6 +141,26 @@ def extract_book_record(book_url: str, html: str, source_page: str) -> dict:
     }
 
 
+# ---- Normalize ----
+def normalize_record(raw: dict) -> dict:
+    price_match = re.search(r"[\d.]+", raw.get("price_text") or "")
+    price_gbp = float(price_match.group()) if price_match else None
+
+    rating = RATING_WORDS.get(raw.get("rating_text"))
+
+    return {
+        "title": raw["title"],
+        "product_url": raw["product_url"],
+        "price_gbp": price_gbp,
+        "price_text": raw["price_text"],
+        "availability_text": raw["availability_text"],
+        "rating": rating,
+        "description": raw["description"],
+        "source_page": raw["source_page"],
+        "fetched_at": raw["fetched_at"],
+    }
+
+
 if __name__ == "__main__":
     start_url = BASE_URL + "catalogue/page-1.html"
     catalogue_pages = discover_all_catalogue_pages(start_url)
@@ -127,17 +175,38 @@ if __name__ == "__main__":
                 book_link_to_source[link] = page_url
 
     unique_links = list(book_link_to_source.keys())
-    print(f"catalogue_pages={len(catalogue_pages)}")
-    print(f"unique_urls={len(unique_links)}")
 
-    records = []
+    valid_records = []
+    error_records = []
+
     for book_url in unique_links:
         cache_filename = url_to_cache_filename(book_url)
         html = fetch_page(book_url, cache_filename)
-        record = extract_book_record(book_url, html, book_link_to_source[book_url])
-        records.append(record)
+        raw = extract_book_record(book_url, html, book_link_to_source[book_url])
+        normalized = normalize_record(raw)
 
-    print(f"detail_pages={len(records)}")
-    print("\nSample record:")
-    for k, v in records[0].items():
-        print(f"  {k}: {v}")
+        try:
+            book = Book(**normalized)
+            valid_records.append(book.model_dump())
+        except ValidationError as e:
+            error_records.append({"record": normalized, "reason": str(e)})
+
+    # de-dupe by canonical product_url, keep first occurrence
+    seen = {}
+    for r in valid_records:
+        seen[r["product_url"]] = r
+    final_records = list(seen.values())
+
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    with open(os.path.join(OUTPUT_DIR, "books.json"), "w", encoding="utf-8") as f:
+        json.dump(final_records, f, indent=2, ensure_ascii=False)
+
+    with open(os.path.join(OUTPUT_DIR, "errors.json"), "w", encoding="utf-8") as f:
+        json.dump(error_records, f, indent=2, ensure_ascii=False)
+
+    print(f"\nvalid_records={len(final_records)}")
+    print(f"error_records={len(error_records)}")
+    all_https = all(r["product_url"].startswith("https://") for r in final_records)
+    all_numeric_price = all(isinstance(r["price_gbp"], float) for r in final_records)
+    print(f"all_urls_https={all_https}")
+    print(f"all_prices_numeric={all_numeric_price}")
