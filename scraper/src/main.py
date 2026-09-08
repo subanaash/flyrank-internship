@@ -18,13 +18,11 @@ DELAY = 0.5
 
 RATING_WORDS = {"One": 1, "Two": 2, "Three": 3, "Four": 4, "Five": 5}
 
-# For the Stage 5 checkpoint: add one made-up URL to prove failure handling.
-# Set to True to include it, False for a normal clean run.
 INCLUDE_FAKE_URL_FOR_TESTING = False
 FAKE_BOOK_URL = "https://books.toscrape.com/catalogue/this-book-does-not-exist_9999/index.html"
 
 
-# ---- Schema ----
+# Schema 
 class Book(BaseModel):
     title: str
     product_url: str
