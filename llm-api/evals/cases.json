@@ -1,0 +1,37 @@
+[
+  {
+    "input": {"title": "The Great Gatsby", "description": "A novel about wealth and the American dream in 1920s New York."},
+    "expected_category": "fiction"
+  },
+  {
+    "input": {"title": "A Brief History of Time", "description": "An exploration of cosmology, black holes, and the origins of the universe, written for a general audience."},
+    "expected_category": "non-fiction"
+  },
+  {
+    "input": {"title": "Leaves of Grass", "description": "A collection of poems celebrating nature, democracy, and the human spirit."},
+    "expected_category": "poetry"
+  },
+  {
+    "input": {"title": "The Very Hungry Caterpillar", "description": "A picture book following a caterpillar as it eats its way through the week before becoming a butterfly."},
+    "expected_category": "children"
+  },
+  {
+    "input": {"title": "Steve Jobs", "description": "A detailed account of the life, career, and personality of the Apple co-founder, based on extensive interviews."},
+    "expected_category": "biography"
+  },
+  {
+    "input": {"title": "Untitled Notes Collection", "description": ""},
+    "expected_category": "other",
+    "note": "Ambiguous case: no description to classify from, should not guess a specific genre."
+  },
+  {
+    "input": {"title": "Quantum Mechanics for Engineers", "description": "Formulas."},
+    "expected_category": "non-fiction",
+    "note": "Should hit the very_short_description quality flag."
+  },
+  {
+    "input": {"title": "A Wrinkle in Ti", "description": "A young girl travels through time and space to rescue her father from an evil force."},
+    "expected_category": "children",
+    "note": "Title looks truncated on purpose — tests title_looks_truncated flag, and genre is genuinely ambiguous between fiction and children's."
+  }
+]
