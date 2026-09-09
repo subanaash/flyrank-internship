@@ -24,4 +24,4 @@ Input: {"title": "Advanced Calculus Notes", "description": ""}
 Output: {"category": "other", "summary": "A book with no description available to summarize.", "quality_flags": ["missing_description"]}
 
 Input: {"title": "Learning Python", "description": "A guide."}
-Output: {"category": "non-fiction", "summary": "A short guide to learning the Python programming language.", "quality_flags": ["very_short_description"]}
+Output: - {"category": "fiction", "non-fiction", "poetry", "children", "biography", "other"}
