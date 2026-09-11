@@ -114,9 +114,33 @@ export default function FlowEditor() {
     [setEdges]
   );
 
+  const runWorkflow = async () => {
+    const startNode = nodes[0];
+    if (!startNode) {
+      alert("Add at least one node first");
+      return;
+    }
+    const response = await fetch("/api/run-workflow", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        nodes: nodes.map((n) => ({ id: n.id, data: { prompt: n.data.prompt } })),
+        edges: edges.map((e) => ({
+          source: e.source,
+          target: e.target,
+          sourceHandle: e.sourceHandle,
+        })),
+        startNodeId: startNode.id,
+      }),
+    });
+    const result = await response.json();
+    console.log("Workflow triggered:", result);
+    alert("Workflow triggered! Check the Inngest dashboard at localhost:8288 for results.");
+  };
+
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
-      <div style={{ position: "absolute", zIndex: 10, padding: 12 }}>
+      <div style={{ position: "absolute", zIndex: 10, padding: 12, display: "flex", gap: 8 }}>
         <button
           onClick={addNode}
           style={{
@@ -130,6 +154,21 @@ export default function FlowEditor() {
           }}
         >
           + Add Decision Node
+        </button>
+
+        <button
+          onClick={runWorkflow}
+          style={{
+            background: "#22c55e",
+            color: "white",
+            border: "none",
+            borderRadius: 6,
+            padding: "8px 16px",
+            fontSize: 14,
+            cursor: "pointer",
+          }}
+        >
+          ▶ Run Workflow
         </button>
       </div>
       <ReactFlow
