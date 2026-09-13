@@ -2,7 +2,7 @@ import sqlite3
 import os
 from datetime import date
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from report_data import get_report_data
 from render_pdf import get_all_books, build_html, render_pdf
 
@@ -41,14 +41,27 @@ def health():
 
 
 @app.post("/reports", status_code=201)
-def create_report():
+def create_report(force: bool = False):
     conn = get_db()
+
+    if not force:
+        today = date.today().isoformat()
+        existing = conn.execute(
+            "SELECT * FROM reports WHERE created_at = ? ORDER BY id DESC LIMIT 1",
+            (today,),
+        ).fetchone()
+
+        if existing:
+            conn.close()
+            return JSONResponse(
+                status_code=200,
+                content={"id": existing["id"], "file": f"/reports/{existing['id']}/file"},
+            )
 
     report_data = get_report_data()
     all_books = get_all_books()
     html = build_html(report_data, all_books)
 
-    row = conn.execute("SELECT last_insert_rowid()").fetchone()
     cursor = conn.execute(
         "INSERT INTO reports (path, created_at) VALUES (?, ?)",
         ("", date.today().isoformat()),
