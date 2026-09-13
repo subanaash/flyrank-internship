@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Visual AI Workflow System
 
-## Getting Started
+A visual workflow builder where each node is an AI decision step that returns YES or NO. Built with React Flow for the visual editor and Inngest for reliable, observable execution, with each node running as its own retryable Inngest step.
 
-First, run the development server:
+## What this does
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Design a decision tree visually: add nodes, write a yes/no question as each node's prompt, and connect nodes with YES or NO edges. Click "Run Workflow" and each node's prompt is sent to a local LLM (via Ollama), which must answer exactly YES or NO. The workflow follows the corresponding edge to the next node, continuing until it reaches a node with no further connection on that path.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## How to run it
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Clone the repo and enter the folder:
+   ```
+   git clone https://github.com/subanaash/flyrank-internship.git
+   cd flyrank-internship/ai-workflow
+   ```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+2. Install dependencies:
+   ```
+   npm install
+   ```
 
-## Learn More
+3. Install [Ollama](https://ollama.com/download) and pull a model:
+   ```
+   ollama run gemma3:1b
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+4. Create `.env.local`:
+   ```
+   LLM_BASE_URL=http://localhost:11434/v1/
+   LLM_API_KEY=ollama
+   LLM_MODEL=gemma3:1b
+   INNGEST_DEV=1
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+5. Start the Next.js dev server:
+   ```
+   npm run dev
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+6. In a separate terminal, start the Inngest dev server:
+   ```
+   npx inngest-cli@latest dev
+   ```
 
-## Deploy on Vercel
+7. Open `http://localhost:3000` — the flow editor loads. Inngest's own dashboard (run history, traces) is at `http://localhost:8288`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## How to use it
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Click **"+ Add Decision Node"** to add a node. Type a yes/no question into its prompt box.
+2. Drag from a node's **green handle (YES)** or **red handle (NO)** to another node to connect them.
+3. Click **"▶ Run Workflow"**. Execution starts from the first node created and follows the AI's YES/NO answer at each step.
+4. Watch the **Execution Log** panel on the right for a step-by-step record of each decision, and watch visited nodes turn green with their decision shown in the title.
+5. Use **"⬇ Export JSON"** to save the current workflow to a file, and **"⬆ Import JSON"** to load one back in.
+
+## Architecture
+
+- **Frontend (React Flow):** renders the graph, handles node creation, editing, and connections entirely in local React state.
+- **Execution (Inngest):** each node's AI call is wrapped in `step.run(...)`, so it's independently retryable and observable in the Inngest dashboard, not just a single opaque function call.
+- **The API route** (`/api/run-workflow`) sends the graph to Inngest as an event, then polls the local Inngest dev server's REST API until the run completes, returning the full execution order back to the frontend.
+- **The model call** uses the standard `openai` npm package pointed at Ollama's OpenAI-compatible local endpoint — no cloud API key needed, no cost per call.
