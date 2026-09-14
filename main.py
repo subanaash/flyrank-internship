@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from datetime import timedelta
 import uuid
 import inngest
@@ -16,6 +16,13 @@ reports: dict[str, dict] = {}
 class ReportRequest(BaseModel):
     topic: str
 
+    @field_validator("topic")
+    @classmethod
+    def topic_not_empty(cls, v):
+        if not v or not v.strip():
+            raise ValueError("topic is required")
+        return v
+
 
 @inngest_client.create_function(
     fn_id="say-hello",
@@ -29,6 +36,7 @@ async def say_hello(ctx: inngest.Context, step: inngest.Step) -> str:
 @inngest_client.create_function(
     fn_id="make-report",
     trigger=inngest.TriggerEvent(event="report/requested"),
+    retries=2,
 )
 async def make_report(ctx: inngest.Context, step: inngest.Step) -> dict:
     report_id = ctx.event.data["id"]
@@ -37,6 +45,8 @@ async def make_report(ctx: inngest.Context, step: inngest.Step) -> dict:
     await step.sleep("do-the-slow-work", timedelta(seconds=8))
 
     async def build():
+        if topic == "fail":
+            raise Exception("The report oven is broken!")
         result = f"Report on '{topic}': this is a placeholder result after 8 seconds of work."
         reports[report_id]["status"] = "done"
         reports[report_id]["result"] = result
